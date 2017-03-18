@@ -25,14 +25,6 @@ test_name = 'data/test.csv'
 submission_col = 'SalePrice'
 submission_name = 'data/sample_submission.csv'
 
-now = datetime.datetime.now()
-
-reference = str(now.day) + '-' + str(now.month) + '-' + str(now.year) + ' ' + str(now.hour) + ':' + str(now.minute)
-x = reference
-y = '.csv'
-
-submission_target = "submissions/%s%s" % (x,y)
-
 # Read files
 train = pd.DataFrame.from_csv(train_name)
 test = pd.DataFrame.from_csv(test_name)
@@ -197,4 +189,13 @@ for cv_train_index, cv_test_index in kfold:
     err.append(mean_squared_error(actuals, predicted_results))
 
 submission[submission_col] = xgb_model.predict(test)
+
+now = datetime.datetime.now()
+
+reference = str(now.day) + '-' + str(now.month) + '-' + str(now.year) + ' ' + str(now.hour) + ':' + str(now.minute)
+x = reference
+y = '.csv'
+
+submission_target = "submissions/%s%s" % (x,y)
+
 submission.to_csv(submission_target)
