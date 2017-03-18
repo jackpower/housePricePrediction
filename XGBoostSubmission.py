@@ -179,7 +179,7 @@ xgb_model.set_params(subsample=bestParams5['subsample'],colsample_bytree=bestPar
 xgb_model.set_params(learning_rate=0.005)
 
 param_grid = {
- 'n_estimators':range(50,500,25)
+ 'n_estimators':range(50,500,5)
 }
 
 clf = GridSearchCV(xgb_model, param_grid, scoring = 'neg_mean_squared_error', cv = 5, verbose=1)
