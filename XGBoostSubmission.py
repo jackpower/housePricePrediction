@@ -66,6 +66,9 @@ test['yearsOld'] = 2012 - test['YearBuilt']
 test['yearsSinceRemodel'] = 2012 - test['YearRemodAdd']
 test['yearsSinceSale'] = 2012 - test['YrSold']
 
+del train['YearBuilt','YearRemodAdd','YrSold']
+del test['YearBuilt','YearRemodAdd','YrSold']
+
 # Define CV
 err = []
 
@@ -138,8 +141,6 @@ xgb_model.set_params(gamma=bestParams3['gamma'])
 
 ## ROUND 4
 
-xgb_model = xgb.XGBRegressor(seed=rng,n_estimators=200,max_depth=5,min_child_weight=3,gamma=0)
-
 param_grid = {
  'n_estimators':range(50,500,25)
 }
@@ -171,7 +172,20 @@ xgb_model.set_params(subsample=bestParams5['subsample'],colsample_bytree=bestPar
 
 ## ROUND 6
 
-xgb_model.set_params(learning_rate=0.01)
+xgb_model.set_params(learning_rate=0.005)
+
+param_grid = {
+ 'n_estimators':range(50,500,25)
+}
+
+clf = GridSearchCV(xgb_model, param_grid, scoring = 'neg_mean_squared_error', cv = 5, verbose=1)
+
+clf.fit(train,target)
+    
+bestParams6 = clf.best_params_
+bestScore6 = clf.best_score_
+
+xgb_model.set_params(n_estimators=bestParams6['n_estimators'])
 
 for cv_train_index, cv_test_index in kfold:
     X_train, X_test = train[cv_train_index, :], train[cv_test_index, :]
