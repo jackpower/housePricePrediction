@@ -66,8 +66,12 @@ test['yearsOld'] = 2012 - test['YearBuilt']
 test['yearsSinceRemodel'] = 2012 - test['YearRemodAdd']
 test['yearsSinceSale'] = 2012 - test['YrSold']
 
-del train['YearBuilt','YearRemodAdd','YrSold']
-del test['YearBuilt','YearRemodAdd','YrSold']
+del train['YearBuilt']
+del train['YearRemodAdd']
+del train['YrSold']
+del test['YearBuilt']
+del test['YearRemodAdd']
+del test['YrSold']
 
 # Define CV
 err = []
