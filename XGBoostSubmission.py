@@ -78,7 +78,7 @@ test['yearsSinceSale'] = 2012 - test['YrSold']
 err = []
 
 train = np.array(train)
-target = np.log(np.array(target)) # Chang to log
+target = np.array(target) # Chang to log
 test = np.array(test)
 print(train.shape, target.shape, test.shape)
 
@@ -196,5 +196,5 @@ for cv_train_index, cv_test_index in kfold:
     actuals = y_test    
     err.append(mean_squared_error(actuals, predicted_results))
 
-submission[submission_col] = np.exp(xgb_model.predict(test))
+submission[submission_col] = xgb_model.predict(test)
 submission.to_csv(submission_target)
