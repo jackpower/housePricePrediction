@@ -10,7 +10,7 @@ import xgboost as xgb
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.cross_validation import KFold
 import datetime
 
@@ -98,9 +98,18 @@ for cv_train_index, cv_test_index in kfold:
     actuals = y_test    
     err.append(mean_squared_error(actuals, predicted_results))
 
+
+X_train, X_test, y_train, y_test = train_test_split(train, target, test_size=0.33, random_state=rng)
+predcited = xgb_model.predict(X_test)
+actuals = y_test
+model_performance = pd.Series(mean_squared_error(actuals,predcited))
+
+s = pd.Series(model_performance)
+s = s.append(model_performance)
+
 ## Round 1
 param_grid = {
- 'n_estimators':range(50,500,25)
+ 'n_estimators':range(50,1000,25)
 }
 
 clf = GridSearchCV(xgb_model, param_grid, scoring = 'neg_mean_squared_error', cv = 5, verbose=1)
@@ -146,7 +155,7 @@ xgb_model.set_params(gamma=bestParams3['gamma'])
 ## ROUND 4
 
 param_grid = {
- 'n_estimators':range(50,500,25)
+ 'n_estimators':range(50,1000,25)
 }
 
 clf = GridSearchCV(xgb_model, param_grid, scoring = 'neg_mean_squared_error', cv = 5, verbose=1)
@@ -179,7 +188,7 @@ xgb_model.set_params(subsample=bestParams5['subsample'],colsample_bytree=bestPar
 xgb_model.set_params(learning_rate=0.005)
 
 param_grid = {
- 'n_estimators':range(50,500,5)
+ 'n_estimators':range(50,1000,5)
 }
 
 clf = GridSearchCV(xgb_model, param_grid, scoring = 'neg_mean_squared_error', cv = 5, verbose=1)
