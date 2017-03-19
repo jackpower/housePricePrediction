@@ -30,10 +30,6 @@ train = pd.DataFrame.from_csv(train_name)
 test = pd.DataFrame.from_csv(test_name)
 submission = pd.DataFrame.from_csv(submission_name)
 
-# Fill na's
-train = train.fillna(-1)
-test = test.fillna(-1)
-
 # Extract target
 target = train['SalePrice']
 del train['SalePrice']
@@ -41,6 +37,37 @@ del train['SalePrice']
 columns = train.columns.values
 
 # Define predictors
+
+train['Alley'] = train['Alley'].fillna("No Alley")
+train['FireplaceQu'] = train['FireplaceQu'].fillna("No Fireplace")
+train['GarageQual'] = train['GarageQual'].fillna("No Garage")
+train['GarageCond'] = train['GarageCond'].fillna("No Garage")
+train['PoolQC'] = train['PoolQC'].fillna("No Pool")
+train['Fence'] = train['Fence'].fillna("No Fence")
+train['MiscFeature'] = train['MiscFeature'].fillna("No Feature")
+
+test['Alley'] = test['Alley'].fillna("No Alley")
+test['FireplaceQu'] = test['FireplaceQu'].fillna("No Fireplace")
+test['GarageQual'] = test['GarageQual'].fillna("No Garage")
+test['GarageCond'] = test['GarageCond'].fillna("No Garage")
+test['PoolQC'] = test['PoolQC'].fillna("No Pool")
+test['Fence'] = test['Fence'].fillna("No Fence")
+test['MiscFeature'] = test['MiscFeature'].fillna("No Feature")
+
+#train = train.fillna(-1)
+#test = test.fillna(-1)
+
+numerical_features=train.select_dtypes(include=["float","int","bool"]).columns.values
+categorical_features=train.select_dtypes(include=["object"]).columns.values                                 
+                                        
+for feature in numerical_features: 
+    train[feature] = train[feature].fillna(train[feature].median())
+    test[feature] = test[feature].fillna(test[feature].median())
+    
+for feature in categorical_features: 
+    train[feature] = train[feature].fillna(train[feature].value_counts().idxmax()) # replace by most frequent value
+    test[feature] = test[feature].fillna(test[feature].value_counts().idxmax()) # replace by most frequent value
+
 # Label nominal variables to numbers
 nom_numeric_cols = ['MSSubClass'] # nominal variables being read as numeric
 dummy_train = []
@@ -102,10 +129,7 @@ for cv_train_index, cv_test_index in kfold:
 X_train, X_test, y_train, y_test = train_test_split(train, target, test_size=0.33, random_state=rng)
 predcited = xgb_model.predict(X_test)
 actuals = y_test
-model_performance = pd.Series(mean_squared_error(actuals,predcited))
-
-s = pd.Series(model_performance)
-s = s.append(model_performance)
+print(mean_squared_error(actuals,predcited))
 
 ## Round 1
 param_grid = {
