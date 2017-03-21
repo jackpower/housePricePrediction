@@ -5,7 +5,7 @@ Created on Sat Mar 18 10:38:43 2017
 
 @author: Jack
 """
-
+# Import libraries
 import xgboost as xgb
 import numpy as np
 import pandas as pd
@@ -14,30 +14,40 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.cross_validation import KFold
 import datetime
 
+# Set random state
 rng = np.random.RandomState(9462)
 
+# Set working directory
 import os
 os.chdir('/Users/Jack/Documents/housePrice')
 
-# Load data
+# Set names of input files
 train_name = 'data/train.csv'
 test_name = 'data/test.csv'
 submission_col = 'SalePrice'
 submission_name = 'data/sample_submission.csv'
 
-# Read files
+# Load data
 train = pd.DataFrame.from_csv(train_name)
 test = pd.DataFrame.from_csv(test_name)
 submission = pd.DataFrame.from_csv(submission_name)
 
-# Extract target
+# Extract target variable
 target = train['SalePrice']
 del train['SalePrice']
 
-columns = train.columns.values
+## Define predictors
 
-# Define predictors
+columns = train.columns.values  # Define the names of columns
 
+# Another version of filling missing values where missing values 
+# are simply replaced by -1, interestingly achieves superior performance than model below. 
+# Next step: look into reasons why. Potentially missing value prediction can be done more effectively
+# e.g. Random Forest or perhaps it is only effective on numerical variables.
+#train = train.fillna(-1)
+#test = test.fillna(-1)
+
+# Change missing values in nominal variables where missing infers additional information in train and test sets
 train['Alley'] = train['Alley'].fillna("No Alley")
 train['FireplaceQu'] = train['FireplaceQu'].fillna("No Fireplace")
 train['GarageQual'] = train['GarageQual'].fillna("No Garage")
@@ -54,9 +64,7 @@ test['PoolQC'] = test['PoolQC'].fillna("No Pool")
 test['Fence'] = test['Fence'].fillna("No Fence")
 test['MiscFeature'] = test['MiscFeature'].fillna("No Feature")
 
-#train = train.fillna(-1)
-#test = test.fillna(-1)
-
+# Replace missing values by median or mode values for factor and numerical variables respectively
 numerical_features=train.select_dtypes(include=["float","int","bool"]).columns.values
 categorical_features=train.select_dtypes(include=["object"]).columns.values                                 
                                         
@@ -69,11 +77,11 @@ for feature in categorical_features:
     test[feature] = test[feature].fillna(test[feature].value_counts().idxmax()) # replace by most frequent value
 
 # Label nominal variables to numbers
-nom_numeric_cols = ['MSSubClass'] # nominal variables being read as numeric
+nom_numeric_cols = ['MSSubClass'] # define nominal variables currently being read as numeric
 dummy_train = []
 dummy_test = []
 for col in columns:
-    # Only works for nominal data without a lot of factors
+    # Only works for nominal data without a lot of factors, as otherwise too many columns produced
     if train[col].dtype.name == 'object' or col in nom_numeric_cols:
         dummy_train.append(pd.get_dummies(train[col].values.astype(str), col))
         dummy_train[-1].index = train.index
@@ -82,9 +90,11 @@ for col in columns:
         del train[col]
         del test[col]
 
+# Merge back into train & test datasets
 train = pd.concat([train] + dummy_train, axis=1)
 test = pd.concat([test] + dummy_test, axis=1)
 
+# Turn YearBuilt into YearsSince / Old variables. Assumes that data published in 2012.
 train['yearsOld'] = 2012 - train['YearBuilt']
 train['yearsSinceRemodel'] = 2012 - train['YearRemodAdd']
 train['yearsSinceSale'] = 2012 - train['YrSold']
@@ -93,6 +103,7 @@ test['yearsOld'] = 2012 - test['YearBuilt']
 test['yearsSinceRemodel'] = 2012 - test['YearRemodAdd']
 test['yearsSinceSale'] = 2012 - test['YrSold']
 
+# Remove variables accounted for elsewhere
 del train['YearBuilt']
 del train['YearRemodAdd']
 del train['YrSold']
@@ -100,52 +111,59 @@ del test['YearBuilt']
 del test['YearRemodAdd']
 del test['YrSold']
 
-# Define CV
+## Build model
 err = []
 
+# Turn into array so that data can be read by XGBoost
 train = np.array(train)
-target = np.array(target) # Chang to log
+target = np.array(target)
 test = np.array(test)
 print(train.shape, target.shape, test.shape)
 
-kfold = KFold(train.shape[0], n_folds=5, random_state=rng)
+kfold = KFold(train.shape[0], n_folds=5, random_state=rng) # Define the k fold method
 
+# Train the initial model
 for cv_train_index, cv_test_index in kfold:
+    # Define the train and test datasets
     X_train, X_test = train[cv_train_index, :], train[cv_test_index, :]
     y_train, y_test = target[cv_train_index], target[cv_test_index]
 
-    # train machine learning
+    # Define dataset, put in DMatrix for XGBoost
     xg_train = xgb.DMatrix(X_train, label=y_train)
     xg_test = xgb.DMatrix(X_test, label=y_test)
 
+    # Define the model
     xgb_model = xgb.XGBRegressor(seed=rng,nthread=4).fit(X_train, y_train)
 
-    # predict
+    # Predict results & calculate error
     predicted_results = xgb_model.predict(X_test)
     actuals = y_test    
     err.append(mean_squared_error(actuals, predicted_results))
 
-
+# Predict model on one train & test dataset & calculate MSE
 X_train, X_test, y_train, y_test = train_test_split(train, target, test_size=0.33, random_state=rng)
 predcited = xgb_model.predict(X_test)
 actuals = y_test
 print(mean_squared_error(actuals,predcited))
 
-## Round 1
+
+## Hyperparameter tuning
+
+# Round 1 - Tune number of boosting trees, initially
 param_grid = {
  'n_estimators':range(50,1000,25)
 }
 
-clf = GridSearchCV(xgb_model, param_grid, scoring = 'neg_mean_squared_error', cv = 5, verbose=1)
+clf = GridSearchCV(xgb_model, param_grid, scoring = 'neg_mean_squared_error', cv = 5, verbose=1) # Use grid search to find optimal parameter, measure with MSE
 
-clf.fit(train,target)
+clf.fit(train,target) # Fit model
     
-bestParams1 = clf.best_params_
-bestScore1 = clf.best_score_
+bestParams1 = clf.best_params_ # Set best parameters
+bestScore1 = clf.best_score_ # Record best score
 
-xgb_model.set_params(n_estimators=bestParams1['n_estimators'])
+xgb_model.set_params(n_estimators=bestParams1['n_estimators']) # Set parameter in model
 
-## ROUND 2
+# Round 2 - Tune max depth & min chid weight
 
 param_grid = {
  'max_depth':range(3,10,2),
@@ -161,7 +179,7 @@ bestScore2 = clf.best_score_
 
 xgb_model.set_params(max_depth=bestParams2['max_depth'],min_child_weight=bestParams2['min_child_weight'])
 
-## ROUND 3
+# Round 3 - Tune gamma
 
 param_grid = {
  'gamma':[i/10.0 for i in range(0,5)]
@@ -176,7 +194,7 @@ bestScore3 = clf.best_score_
 
 xgb_model.set_params(gamma=bestParams3['gamma'])
 
-## ROUND 4
+# Round 4 - Confirm optimal number of number boosted trees with new parameters
 
 param_grid = {
  'n_estimators':range(50,1000,25)
@@ -191,7 +209,7 @@ bestScore4 = clf.best_score_
 
 xgb_model.set_params(n_estimators=bestParams4['n_estimators'])
 
-## ROUND 5
+# Round 5 - Tune subsample & colsample
 
 param_grid = {
  'subsample':[i/100.0 for i in range(75,90,5)],
@@ -207,7 +225,7 @@ bestScore5 = clf.best_score_
 
 xgb_model.set_params(subsample=bestParams5['subsample'],colsample_bytree=bestParams5['colsample_bytree'])
 
-## ROUND 6
+# Round 6 - Tune number of trees with lower learning rate
 
 xgb_model.set_params(learning_rate=0.005)
 
@@ -224,20 +242,23 @@ bestScore6 = clf.best_score_
 
 xgb_model.set_params(n_estimators=bestParams6['n_estimators'])
 
+
+## Retrain model based on tuned parameters (same as above)
+
 for cv_train_index, cv_test_index in kfold:
     X_train, X_test = train[cv_train_index, :], train[cv_test_index, :]
     y_train, y_test = target[cv_train_index], target[cv_test_index]
 
-    # train machine learning
     xg_train = xgb.DMatrix(X_train, label=y_train)
     xg_test = xgb.DMatrix(X_test, label=y_test)
 
     xgb_model = xgb_model.fit(X_train, y_train)
 
-    # predict
     predicted_results = xgb_model.predict(X_test)
     actuals = y_test    
     err.append(mean_squared_error(actuals, predicted_results))
+
+## Create a submission for Kaggle
 
 submission[submission_col] = xgb_model.predict(test)
 
