@@ -258,7 +258,7 @@ for cv_train_index, cv_test_index in kfold:
     actuals = y_test    
     err.append(mean_squared_error(actuals, predicted_results))
 
-## Create a submission for Kaggle
+## Create a submission for Kaggle.
 
 submission[submission_col] = xgb_model.predict(test)
 
